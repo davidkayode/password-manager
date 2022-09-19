@@ -6,7 +6,7 @@ A password manager app in a tkinter GUI interface
 from tkinter import *
 from tkinter import messagebox
 from random import randint, choice, shuffle, sample
-import pyperclip
+import pyperclip, json
 
 
 FONT = ('Arial', 10, 'normal')
@@ -31,33 +31,74 @@ def generate_password():
 
 # ---------------------------- SAVE PASSWORD ------------------------------- #
 def save_all():
-    ''' Saves login information in a txt file'''
+    ''' Saves login information in a json file'''
     
-    # save info entered in entries
-    tosave1 = website_entry.get()
-    tosave2 = info_entry.get()
-    tosave3 = password_entry.get()
-    line = f'{tosave1} | {tosave2} | {tosave3}'
+    # save data entered
+    website = website_entry.get()
+    username = info_entry.get()
+    password = password_entry.get()
+    new_data = {
+        website: {
+            'email': username,
+            'password': password
+        }
+    }
     
     # check all entries exist
-    if len(tosave1) == 0 or len(tosave2) == 0 or len(tosave3) == 0:
-        messagebox.showerror(title= 'oops', icon='warning', message='Please fill in all entries')
+    if len(website) == 0 or len(username) == 0 or len(password) == 0:
+        messagebox.showerror(title= 'Error', icon='warning', message='Please fill in all entries')
 
     else:
         # confirmation before saving (output is boolean)
-        is_ok = messagebox.askokcancel(title='Save info', message=f'These are the details entered:\nWebsite: {tosave1}\nEmail: {tosave2} \nPassword: {tosave3} \n\nProceed to save?')
+        is_ok = messagebox.askokcancel(title='Save info', message=f'These are the details entered:\nWebsite: {website}\nEmail: {username} \nPassword: {password} \n\nProceed to save?')
 
-        # save the line in a txt file
+        # save data in json file
         if is_ok:
-            with open('data.txt', 'a') as f:
-                f.write(f'{line}\n')
+            try:
+                # open the json file and read existing data into a dictionary
+                with open('data.json', 'r') as f:
+                    data = json.load(f)
 
-            # clear entry for new information
-            website_entry.delete(0, END)
-            password_entry.delete(0, END)
-            info_entry.delete(0, END)
-        
+            except FileNotFoundError:
+                # create a new json file and add new data
+                with open('data.json', 'w') as f:
+                    json.dump(new_data, f, indent=4)
+
+            else:
+                # add new data to the dictionary 
+                data.update(new_data)
+
+                # save the new data to the json file
+                with open('data.json', 'w') as f:
+                    json.dump(data, f, indent=4)
+
+            finally:
+                # clear entry for new information
+                website_entry.delete(0, END)
+                password_entry.delete(0, END)
+                info_entry.delete(0, END)
+
 # ---------------------------- UI SETUP ------------------------------- #
+def find_password():
+    ''' Finds an entry in the password database and returns it'''
+    
+    try:
+        # read in the password database
+        with open('data.json', 'r') as f:
+            data = json.load(f)
+
+        # search and display website info if available
+        info = data[website_entry.get().lower()]
+        messagebox.showinfo(title=website_entry.get(), message=f"Email/Username: {info['email']}\nPassword: {info['password']}")
+
+    except FileNotFoundError:
+        messagebox.showerror(title='Error', message='No data file found')
+
+    except KeyError:
+        messagebox.showerror(title='Error', message=f'No details for {website_entry.get()} exists')
+
+
+# ---------------------------- SEARCH DATA ---------------------------- #
 window = Tk()
 window.title('Password Manager')
 window.config(padx=50, pady=50)
@@ -97,7 +138,9 @@ add_button = Button(width=40, command=save_all)
 add_button.config(text='Add', font=FONT)
 add_button.grid(column=1, row=4, columnspan=2)
 
-
+search_button = Button(width=14, command=find_password)
+search_button.config(text='Search', font=FONT)
+search_button.grid(column=2, row=1)
 
 
 window.mainloop()
